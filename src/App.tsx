@@ -1,26 +1,101 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { cloneDeep } from 'lodash';
+import DraggableGraph from './DraggableGraph';
+import { parse, unparse } from './parser';
+import {
+  Day, Switchpoint, Location, Zone, ALL_DAYS,
+} from './types';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+interface Props {}
+interface State {
+  day: Day;
+  copyDay: Day;
+  location?: Location;
+  rawJson: string;
+}
+
+class App extends React.Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      day: 'Monday' as Day,
+      copyDay: 'Tuesday' as Day,
+      location: undefined as Location | undefined,
+      rawJson: '',
+    };
+  }
+
+  handleDayChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
+    this.setState({ day: event.target.value as Day });
+  };
+
+  handleCopyDayChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
+    this.setState({ copyDay: event.target.value as Day });
+  };
+
+  handleCopy = (): void => {
+    const { location: loc, day, copyDay } = this.state;
+    if (!loc) {
+      return;
+    }
+    const location = cloneDeep(loc);
+    location.gateways[0].systems[0].zones.forEach((zone) => {
+      zone.switchpoints[copyDay] = zone.switchpoints[day];
+    });
+    const rawJson = unparse(location);
+    this.setState({ rawJson, location });
+
+  }
+
+  handleJsonChange = (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    const location = parse(event.target.value);
+    this.setState({ location, rawJson: event.target.value });
+  };
+
+  updateSwitchpoints(i: number, switchpoints: Switchpoint[]): void {
+    const { location: loc, day } = this.state;
+    if (!loc) {
+      return;
+    }
+    const location = cloneDeep(loc);
+    location.gateways[0].systems[0].zones[i].switchpoints[day] = switchpoints;
+    const rawJson = unparse(location);
+    this.setState({ rawJson, location });
+  }
+
+  render(): React.ReactNode {
+    let zones = [] as Zone[];
+    const { location, day, copyDay, rawJson } = this.state;
+    if (location) {
+      zones = location.gateways[0].systems[0].zones;
+    }
+    return (
+      <>
+        <div>
+          <select value={day} onChange={this.handleDayChange}>
+            {ALL_DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+        <div className="container">
+          {zones.map((zone, i) => (
+            <DraggableGraph
+              key={zone.name}
+              name={zone.name}
+              switchpoints={zone.switchpoints[day] || []}
+              updateSwitchpoints={(s) => this.updateSwitchpoints(i, s)}
+            />
+          ))}
+        </div>
+        <textarea spellCheck={false} className="json" value={rawJson} onChange={this.handleJsonChange} />
+        <div>
+          <button onClick={this.handleCopy}>Copy to</button>
+          <select value={copyDay} onChange={this.handleCopyDayChange}>
+            {ALL_DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+      </>
+    );
+  }
 }
 
 export default App;
