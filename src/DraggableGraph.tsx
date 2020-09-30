@@ -54,11 +54,20 @@ export default class DraggableGraph extends React.Component<Props> {
       legend: {
         display: false,
       },
-      onClick: (event: MouseEvent) => {
+      onClick: (event: MouseEvent, activeElements: any[]) => {
         const instance = this.chart?.current?.chartInstance;
         if (!instance) {
           return;
         }
+        const { switchpoints: sw, updateSwitchpoints } = this.props;
+        const switchpoints = [...sw];
+        if (activeElements.length > 0) {
+          const index = activeElements[0]._index;
+          switchpoints.splice(index, 1);
+          updateSwitchpoints(switchpoints);
+          return;
+        }
+
         let valueX: moment.Moment | null = null as moment.Moment | null;
         let valueY: number | null = null as number | null;
         Object.values(instance.scales).forEach((scaleRef: any) => {
@@ -71,8 +80,6 @@ export default class DraggableGraph extends React.Component<Props> {
         if (valueX == null || valueY == null) {
           return;
         }
-        const { switchpoints: sw, updateSwitchpoints } = this.props;
-        const switchpoints = [...sw];
         switchpoints.push(roundValue({ x: valueX, y: valueY }));
         const sorted = switchpoints.sort(({ timeOfDay: a }, { timeOfDay: b }) => a.diff(b));
         updateSwitchpoints(sorted);
