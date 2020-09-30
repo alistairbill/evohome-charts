@@ -22,6 +22,13 @@ interface ChartValue {
   y: number;
 }
 
+function roundValue(chartValue: ChartValue): Switchpoint {
+  const heatSetpoint = Math.round(chartValue.y * 2) / 2;
+  const roundedMinutes = Math.round(chartValue.x.clone().minute() / 10) * 10;
+  const timeOfDay = chartValue.x.clone().minute(roundedMinutes).second(0);
+  return { timeOfDay, heatSetpoint };
+}
+
 export default class DraggableGraph extends React.Component<Props> {
   chart = React.createRef<any>();
 
@@ -36,8 +43,7 @@ export default class DraggableGraph extends React.Component<Props> {
       onDragEnd: (e, datasetIndex, index, value) => {
         const { switchpoints: sw, updateSwitchpoints } = this.props;
         const switchpoints = [...sw];
-        switchpoints[index].timeOfDay = value.x;
-        switchpoints[index].heatSetpoint = Math.round(value.y);
+        switchpoints[index] = roundValue(value);
         const sorted = switchpoints.sort(({ timeOfDay: a }, { timeOfDay: b }) => a.diff(b));
         updateSwitchpoints(sorted);
       },
@@ -67,9 +73,7 @@ export default class DraggableGraph extends React.Component<Props> {
         }
         const { switchpoints: sw, updateSwitchpoints } = this.props;
         const switchpoints = [...sw];
-        const timeOfDay = valueX.second(0);
-        const heatSetpoint = Math.round(valueY);
-        switchpoints.push({ timeOfDay, heatSetpoint });
+        switchpoints.push(roundValue({ x: valueX, y: valueY }));
         const sorted = switchpoints.sort(({ timeOfDay: a }, { timeOfDay: b }) => a.diff(b));
         updateSwitchpoints(sorted);
       },
