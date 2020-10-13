@@ -11,6 +11,7 @@ interface State {
   day: Day;
   copyDay: Day;
   location?: Location;
+  oldLocation?: Location;
   rawJson: string;
 }
 
@@ -21,6 +22,7 @@ class App extends React.Component<Props, State> {
       day: 'Monday' as Day,
       copyDay: 'Tuesday' as Day,
       location: undefined as Location | undefined,
+      oldLocation: undefined as Location | undefined,
       rawJson: '',
     };
   }
@@ -43,13 +45,14 @@ class App extends React.Component<Props, State> {
       zone.switchpoints[copyDay] = zone.switchpoints[day];
     });
     const rawJson = unparse(location);
-    this.setState({ rawJson, location });
+    this.setState({ rawJson, location, oldLocation: loc });
 
   }
 
   handleJsonChange = (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    const { location: loc } = this.state;
     const location = parse(event.target.value);
-    this.setState({ location, rawJson: event.target.value });
+    this.setState({ location, oldLocation: loc, rawJson: event.target.value });
   };
 
   updateSwitchpoints(i: number, switchpoints: Switchpoint[]): void {
@@ -60,12 +63,21 @@ class App extends React.Component<Props, State> {
     const location = cloneDeep(loc);
     location.gateways[0].systems[0].zones[i].switchpoints[day] = switchpoints;
     const rawJson = unparse(location);
-    this.setState({ rawJson, location });
+    this.setState({ rawJson, location, oldLocation: loc });
+  }
+
+  handleUndo = (): void => {
+    const { oldLocation } = this.state;
+    if (!oldLocation) {
+      return;
+    }
+    const rawJson = unparse(oldLocation);
+    this.setState({ rawJson, location: oldLocation, oldLocation: undefined });
   }
 
   render(): React.ReactNode {
     let zones = [] as Zone[];
-    const { location, day, copyDay, rawJson } = this.state;
+    const { location, day, copyDay, rawJson, oldLocation } = this.state;
     if (location) {
       zones = location.gateways[0].systems[0].zones;
     }
@@ -75,6 +87,9 @@ class App extends React.Component<Props, State> {
           <select value={day} onChange={this.handleDayChange}>
             {ALL_DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
+        </div>
+        <div>
+          <button disabled={!oldLocation} onClick={this.handleUndo}>Undo</button>
         </div>
         <div className="container">
           {zones.map((zone, i) => (
