@@ -49,10 +49,14 @@ class App extends React.Component<Props, State> {
 
   }
 
-  handleJsonChange = (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
+  changeJson = (text: string): void => {
     const { location: loc } = this.state;
-    const location = parse(event.target.value);
-    this.setState({ location, oldLocation: loc, rawJson: event.target.value });
+    const location = parse(text);
+    this.setState({ location, oldLocation: loc, rawJson: text });
+  }
+
+  handleJsonChange = (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
+    this.changeJson(event.target.value);
   };
 
   updateSwitchpoints(i: number, switchpoints: Switchpoint[]): void {
@@ -64,6 +68,21 @@ class App extends React.Component<Props, State> {
     location.gateways[0].systems[0].zones[i].switchpoints[day] = switchpoints;
     const rawJson = unparse(location);
     this.setState({ rawJson, location, oldLocation: loc });
+  }
+
+  handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (text) {
+        this.changeJson(text.toString());
+      }
+    };
+    const files = event.currentTarget.files;
+    if (files && files[0]) {
+      reader.readAsText(files[0]);
+    }
   }
 
   handleUndo = (): void => {
@@ -102,6 +121,9 @@ class App extends React.Component<Props, State> {
           ))}
         </div>
         <textarea spellCheck={false} className="json" value={rawJson} onChange={this.handleJsonChange} />
+        <div>
+          <input type="file" onChange={this.handleImportFile} />
+        </div>
         <div>
           <button onClick={this.handleCopy}>Copy to</button>
           <select value={copyDay} onChange={this.handleCopyDayChange}>
