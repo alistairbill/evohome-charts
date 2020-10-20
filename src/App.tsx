@@ -85,6 +85,16 @@ class App extends React.Component<Props, State> {
     }
   }
 
+  handleExport = (): void => {
+    const { rawJson } = this.state;
+    const element = document.createElement("a");
+    const file = new Blob([rawJson], { type: 'application/json' });
+    element.href = URL.createObjectURL(file);
+    element.download = "schedule.json";
+    document.body.appendChild(element);
+    element.click();
+  }
+
   handleUndo = (): void => {
     const { oldLocation } = this.state;
     if (!oldLocation) {
@@ -123,6 +133,7 @@ class App extends React.Component<Props, State> {
         <textarea spellCheck={false} className="json" value={rawJson} onChange={this.handleJsonChange} />
         <div>
           <input type="file" onChange={this.handleImportFile} />
+          <button onClick={this.handleExport}>Export</button>
         </div>
         <div>
           <button onClick={this.handleCopy}>Copy to</button>
