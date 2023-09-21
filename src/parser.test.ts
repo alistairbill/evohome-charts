@@ -1,4 +1,4 @@
-import { parse, unparse } from './parser';
+import { parse, unparse } from './parser.ts';
 
 const ex = `
 {

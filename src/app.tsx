@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { type ConnectedProps, connect } from 'react-redux';
 import { bindActionCreators } from '@reduxjs/toolkit';
-import { type Day, allDays } from './parser';
-import DraggableChart from './draggable-chart';
-import { copyZoneDay, fromJson } from './schedule-slice';
-import UndoRedo from './undo-redo';
-import type { AppDispatch, RootState } from './store';
+import { type Day, allDays } from './parser.ts';
+import DraggableChart from './draggable-chart.tsx';
+import { copyZoneDay, fromJson } from './schedule-slice.ts';
+import UndoRedo from './undo-redo.tsx';
+import type { AppDispatch, RootState } from './store.ts';
 
 const mapStateToProps = (state: RootState) => ({
   json: state.schedule.present.json,

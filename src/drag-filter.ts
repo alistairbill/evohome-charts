@@ -1,6 +1,6 @@
 import { type AnyAction } from '@reduxjs/toolkit';
-import { type Day } from './parser';
-import { updateSwitchpoint } from './schedule-slice';
+import { type Day } from './parser.ts';
+import { updateSwitchpoint } from './schedule-slice.ts';
 
 const ignoreTime = 250 as const;
 

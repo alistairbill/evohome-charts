@@ -2,9 +2,9 @@ import { useRef } from 'react';
 import { DateTimeFormatter, LocalTime } from '@js-joda/core';
 import { type ConnectedProps, connect } from 'react-redux';
 import { type Dispatch, bindActionCreators } from '@reduxjs/toolkit';
-import { addSwitchpoint, deleteSwitchpoint, updateSwitchpoint } from './schedule-slice';
-import type { Day, Switchpoint } from './parser';
-import { type RootState } from './store';
+import { addSwitchpoint, deleteSwitchpoint, updateSwitchpoint } from './schedule-slice.ts';
+import type { Day, Switchpoint } from './parser.ts';
+import { type RootState } from './store.ts';
 
 const round = ({ timeOfDay, heatSetpoint }: Switchpoint): Switchpoint => ({
   timeOfDay: Math.min(Math.max(0, Math.round(timeOfDay / 600) * 600), (60 * 60 * 24) - 600),

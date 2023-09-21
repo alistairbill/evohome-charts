@@ -1,6 +1,6 @@
 import { ActionCreators as UndoActionCreators } from 'redux-undo';
 import { type ConnectedProps, connect } from 'react-redux';
-import type { AppDispatch, RootState } from './store';
+import type { AppDispatch, RootState } from './store.ts';
 
 const mapStateToProps = (state: RootState) => ({
   canUndo: state.schedule.past.length > 0,

@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { parse, type Day, type Location, type Switchpoint, unparse } from './parser';
+import { parse, type Day, type Location, type Switchpoint, unparse } from './parser.ts';
 
 export type ScheduleState = {
   json: string;

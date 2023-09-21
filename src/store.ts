@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import undoable from 'redux-undo';
-import scheduleReducer, { type ScheduleState } from './schedule-slice';
-import { dragThrottlingFilter } from './drag-filter';
+import scheduleReducer, { type ScheduleState } from './schedule-slice.ts';
+import { dragThrottlingFilter } from './drag-filter.ts';
 
 export const store = configureStore({
   reducer: {
