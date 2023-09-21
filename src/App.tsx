@@ -1,149 +1,83 @@
-import React from 'react';
-import { cloneDeep } from 'lodash';
-import DraggableGraph from './DraggableGraph';
-import { parse, unparse } from './parser';
-import {
-  Day, Switchpoint, Location, Zone, ALL_DAYS,
-} from './types';
+import React, { useState } from 'react';
+import { type ConnectedProps, connect } from 'react-redux';
+import { bindActionCreators } from '@reduxjs/toolkit';
+import { type Day, allDays } from './parser';
+import DraggableChart from './draggable-chart';
+import { copyZoneDay, fromJson } from './schedule-slice';
+import UndoRedo from './undo-redo';
+import type { AppDispatch, RootState } from './store';
 
-interface Props {}
-interface State {
-  day: Day;
-  copyDay: Day;
-  location?: Location;
-  oldLocation?: Location;
-  rawJson: string;
-}
+const mapStateToProps = (state: RootState) => ({
+  json: state.schedule.present.json,
+  zones: state.schedule.present.locations[0]?.gateways[0]?.systems[0]?.zones ?? [],
+});
 
-class App extends React.Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      day: 'Monday' as Day,
-      copyDay: 'Tuesday' as Day,
-      location: undefined as Location | undefined,
-      oldLocation: undefined as Location | undefined,
-      rawJson: '',
-    };
-  }
+const mapDispatchToProps = (dispatch: AppDispatch) => bindActionCreators({ fromJson, copyZoneDay }, dispatch);
 
-  handleDayChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    this.setState({ day: event.target.value as Day });
+const connector = connect(mapStateToProps, mapDispatchToProps);
+
+function App({ json, zones, fromJson, copyZoneDay }: ConnectedProps<typeof connector>) {
+  const [day, setDay] = useState<Day>(allDays[0] as Day);
+  const [copyDay, setCopyDay] = useState<Day>(allDays[1] as Day);
+
+  const handleJsonChange = ({ currentTarget }: React.ChangeEvent<HTMLTextAreaElement>) => {
+    fromJson(currentTarget.value);
   };
 
-  handleCopyDayChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    this.setState({ copyDay: event.target.value as Day });
+  const handleDayChange = ({ currentTarget }: React.ChangeEvent<HTMLSelectElement>) => {
+    setDay(currentTarget.value as Day);
   };
 
-  handleCopy = (): void => {
-    const { location: loc, day, copyDay } = this.state;
-    if (!loc) {
-      return;
-    }
-    const location = cloneDeep(loc);
-    location.gateways[0].systems[0].zones.forEach((zone) => {
-      zone.switchpoints[copyDay] = zone.switchpoints[day];
-    });
-    const rawJson = unparse(location);
-    this.setState({ rawJson, location, oldLocation: loc });
-
-  }
-
-  changeJson = (text: string): void => {
-    const { location: loc } = this.state;
-    const location = parse(text);
-    this.setState({ location, oldLocation: loc, rawJson: text });
-  }
-
-  handleJsonChange = (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
-    this.changeJson(event.target.value);
+  const handleCopyDayChange = ({ currentTarget }: React.ChangeEvent<HTMLSelectElement>) => {
+    setCopyDay(currentTarget.value as Day);
   };
 
-  updateSwitchpoints(i: number, switchpoints: Switchpoint[]): void {
-    const { location: loc, day } = this.state;
-    if (!loc) {
-      return;
-    }
-    const location = cloneDeep(loc);
-    location.gateways[0].systems[0].zones[i].switchpoints[day] = switchpoints;
-    const rawJson = unparse(location);
-    this.setState({ rawJson, location, oldLocation: loc });
-  }
+  const handleCopy = () => copyZoneDay({ from: day, to: copyDay });
 
-  handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result;
-      if (text) {
-        this.changeJson(text.toString());
-      }
-    };
     const files = event.currentTarget.files;
-    if (files && files[0]) {
-      reader.readAsText(files[0]);
+    if (files?.[0]) {
+      const text = await files[0].text();
+      fromJson(text);
     }
-  }
+  };
 
-  handleExport = (): void => {
-    const { rawJson } = this.state;
-    const element = document.createElement("a");
-    const file = new Blob([rawJson], { type: 'application/json' });
+  const handleExport = () => {
+    const element = document.createElement('a');
+    const file = new Blob([json], { type: 'application/json' });
     element.href = URL.createObjectURL(file);
-    element.download = "schedule.json";
-    document.body.appendChild(element);
+    element.download = 'schedule.json';
+    document.body.append(element);
     element.click();
-  }
+  };
 
-  handleUndo = (): void => {
-    const { oldLocation } = this.state;
-    if (!oldLocation) {
-      return;
-    }
-    const rawJson = unparse(oldLocation);
-    this.setState({ rawJson, location: oldLocation, oldLocation: undefined });
-  }
-
-  render(): React.ReactNode {
-    let zones = [] as Zone[];
-    const { location, day, copyDay, rawJson, oldLocation } = this.state;
-    if (location) {
-      zones = location.gateways[0].systems[0].zones;
-    }
-    return (
-      <>
-        <div>
-          <select value={day} onChange={this.handleDayChange}>
-            {ALL_DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-        <div>
-          <button disabled={!oldLocation} onClick={this.handleUndo}>Undo</button>
-        </div>
-        <div className="container">
-          {zones.map((zone, i) => (
-            <DraggableGraph
-              key={zone.name}
-              name={zone.name}
-              switchpoints={zone.switchpoints[day] || []}
-              updateSwitchpoints={(s) => this.updateSwitchpoints(i, s)}
-            />
-          ))}
-        </div>
-        <textarea spellCheck={false} className="json" value={rawJson} onChange={this.handleJsonChange} />
-        <div>
-          <input type="file" onChange={this.handleImportFile} />
-          <button onClick={this.handleExport}>Export</button>
-        </div>
-        <div>
-          <button onClick={this.handleCopy}>Copy to</button>
-          <select value={copyDay} onChange={this.handleCopyDayChange}>
-            {ALL_DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-      </>
-    );
-  }
+  return (
+    <>
+      <div>
+        <select value={day} onChange={handleDayChange}>
+          {allDays.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+      <div>
+        <UndoRedo />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr)', gridGap: '10px' }}>
+        {zones.map((zone, i) => <div key={zone.name}><h2>{zone.name}</h2><DraggableChart zone={i} day={day} /></div>)}
+      </div>
+      <textarea spellCheck={false} style={{ width: '100%', height: '20vh' }} value={json} onChange={handleJsonChange} />
+      <div>
+        <input type='file' onChange={handleImport} />
+        <button onClick={handleExport}>Export</button>
+      </div>
+      <div>
+        <button onClick={handleCopy}>Copy to</button>
+        <select value={copyDay} onChange={handleCopyDayChange}>
+          {allDays.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+    </>
+  );
 }
 
-export default App;
+export default connector(App);

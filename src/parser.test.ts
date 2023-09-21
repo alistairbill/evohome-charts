@@ -1,7 +1,6 @@
-import { cloneDeep } from 'lodash';
 import { parse, unparse } from './parser';
 
-const testJson = `
+const ex = `
 {
   "1" : 
   {
@@ -1012,29 +1011,8 @@ const testJson = `
     "locationId" : "1",
     "name" : "ManorRd"
   }
-}`;
+}` as const;
 
-test('unparse(parse(json)) == json', () => {
-  const parsed = parse(testJson);
-  expect(parsed).toBeTruthy();
-  if (!parsed) {
-    return;
-  }
-  expect(JSON.parse(unparse(parsed))).toStrictEqual(JSON.parse(testJson));
+test('unparse(parse(ex)) should be ex', () => {
+  expect(JSON.parse(unparse(parse(ex)))).toStrictEqual(JSON.parse(ex));
 });
-
-test('unparse does not change object', () => {
-  const parsed = parse(testJson);
-  if (!parsed) {
-    return;
-  }
-  const parsed2 = cloneDeep(parsed);
-  unparse(parsed2);
-  expect(parsed).toStrictEqual(parsed2);
-});
-
-test('wrong json returns undefined', () => {
-  expect(parse('{"abc": "def"}')).toBeUndefined();
-  expect(parse('')).toBeUndefined();
-  expect(parse('{{')).toBeUndefined();
-})

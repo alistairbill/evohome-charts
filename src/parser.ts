@@ -1,77 +1,108 @@
-import moment from 'moment';
-import {
-  Gateway, System, Zone, DaySwitchpoints, DailySchedule, Day, RawSwitchpoint, Location,
-} from './types';
+import { DateTimeFormatter, LocalTime } from '@js-joda/core';
+import { objectFromEntries } from 'ts-extras';
 
-function isNumeric(value: string): boolean {
-  return /^\d+$/.test(value);
-}
+const hhmmss = DateTimeFormatter.ofPattern('HH:mm:ss');
 
-export function parse(json: string): Location | undefined {
-  try {
-    const rawObj = JSON.parse(json);
-    const locationId = parseInt(Object.keys(rawObj)[0], 10);
-    const loc = rawObj[locationId];
-    const locationName = loc.name;
-    const gateways: Gateway[] = [];
-    const gatewayIds = Object.keys(loc).filter(isNumeric).map((n) => parseInt(n, 10));
-    gatewayIds.forEach((gatewayId) => {
-      const gateway = loc[gatewayId];
-      const systems: System[] = [];
-      const systemIds = Object.keys(gateway).filter(isNumeric).map((n) => parseInt(n, 10));
-      systemIds.forEach((systemId) => {
-        const system = gateway[systemId];
-        const zoneIds = Object.keys(system).filter(isNumeric).map((n) => parseInt(n, 10));
-        const zones: Zone[] = [];
-        zoneIds.forEach((zoneId) => {
-          const zone = system[zoneId];
-          const switchpoints: DaySwitchpoints = {};
-          zone.dailySchedules.forEach((dailySchedule: DailySchedule) => {
-            switchpoints[dailySchedule.dayOfWeek as Day] = dailySchedule.switchpoints.map(({ heatSetpoint, timeOfDay }: RawSwitchpoint) => ({ heatSetpoint, timeOfDay: moment(timeOfDay, 'HH:mm:ss') }));
-          });
-          zone.switchpoints = switchpoints;
-          zones.push(zone);
-          delete system[zoneId];
-        });
-        system.zones = zones;
-        systems.push(system);
-        delete gateway[systemId];
-      });
-      gateway.systems = systems;
-      gateways.push(gateway);
-      delete loc[gatewayId];
-    });
-    return { locationId, name: locationName, gateways };
-  } catch {
-    return undefined;
-  }
-}
+type RawLocation = {
+  [gatewayId: string]: RawGateway | string;
+  locationId: string;
+  name: string;
+};
 
-export function unparse(location: Location): string {
-  const rawLocation: { [k: string]: any } = {
-    locationId: location.locationId.toString(),
+export type Location = {
+  id: string;
+  name: string;
+  gateways: Gateway[];
+};
+
+type RawGateway = {
+  [systemId: string]: RawSystem | string;
+  gatewayId: string;
+};
+
+export type Gateway = {
+  id: string;
+  systems: System[];
+};
+
+type RawSystem = {
+  [zoneId: string]: RawZone | string;
+  systemId: string;
+};
+
+export type System = {
+  id: string;
+  zones: Zone[];
+};
+
+type RawZone = {
+  dailySchedules: RawDailySchedule[];
+  name: string;
+  zoneId: string;
+};
+
+export type Zone = {
+  id: string;
+  name: string;
+  switchpoints: DailySchedule;
+};
+
+type DailySchedule = Record<Day, Switchpoint[]>;
+
+type RawDailySchedule = {
+  dayOfWeek: Day;
+  switchpoints: RawSwitchpoint[];
+};
+
+export type RawSwitchpoint = {
+  heatSetpoint: number;
+  timeOfDay: string;
+};
+
+export type Switchpoint = {
+  heatSetpoint: number;
+  timeOfDay: number;
+};
+
+export const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+export type Day = (typeof allDays)[number];
+
+export function parse(json: string): Location[] {
+  const raw = JSON.parse(json) as Record<string, RawLocation>;
+  return Object.values(raw).map(location => ({
+    id: location.locationId,
     name: location.name,
-  };
-  location.gateways.forEach((gateway) => {
-    const rawGateway: { [k: string]: any } = {
-      gatewayId: gateway.gatewayId.toString(),
-    };
-    gateway.systems.forEach((system) => {
-      const rawSystem: { [k: string]: any } = {
-        systemId: system.systemId.toString(),
-      };
-      system.zones.forEach((zone) => {
-        const rawZone = {
-          dailySchedules: Object.entries(zone.switchpoints).map(([day, switchpoints]) => ({ dayOfWeek: day, switchpoints: (switchpoints || []).map(({ heatSetpoint, timeOfDay }) => ({ heatSetpoint, timeOfDay: timeOfDay.format('HH:mm:ss') })) })),
+    gateways: Object.entries(location).filter((kv): kv is [string, RawGateway] => !(['locationId', 'name'].includes(kv[0]))).map(([_, gateway]) => ({
+      id: gateway.gatewayId,
+      systems: Object.entries(gateway).filter((kv): kv is [string, RawSystem] => kv[0] !== 'gatewayId').map(([_, system]) => ({
+        id: system.systemId,
+        zones: Object.entries(system).filter((kv): kv is [string, RawZone] => kv[0] !== 'systemId').map(([_, zone]) => ({
+          id: zone.zoneId,
           name: zone.name,
-          zoneId: zone.zoneId.toString(),
+          switchpoints: objectFromEntries(zone.dailySchedules.map(({ dayOfWeek, switchpoints }) => [dayOfWeek, switchpoints.map(({ heatSetpoint, timeOfDay }) => ({ heatSetpoint, timeOfDay: LocalTime.parse(timeOfDay, hhmmss).toSecondOfDay() }))])),
+        })),
+      })),
+    })),
+  }));
+}
+
+export function unparse(locations: Location[]): string {
+  const raw = objectFromEntries(locations.map(({ id: locationId, name, gateways }) => [locationId, gateways.reduce<RawLocation>((acc, { id: gatewayId, systems }) => {
+    acc[gatewayId] = systems.reduce<RawGateway>((acc, { id: systemId, zones }) => {
+      acc[systemId] = zones.reduce<RawSystem>((acc, { id: zoneId, name, switchpoints }) => {
+        acc[zoneId] = {
+          zoneId, name,
+          dailySchedules: Object.entries(switchpoints).map(([dayOfWeek, switchpoints]) => ({
+            dayOfWeek: dayOfWeek as Day,
+            switchpoints: switchpoints.map(({ heatSetpoint, timeOfDay }) => ({ heatSetpoint, timeOfDay: hhmmss.format(LocalTime.ofSecondOfDay(timeOfDay)) })),
+          })),
         };
-        rawSystem[rawZone.zoneId] = rawZone;
-      });
-      rawGateway[rawSystem.systemId] = rawSystem;
-    });
-    rawLocation[rawGateway.gatewayId] = rawGateway;
-  });
-  const rawObj = { [rawLocation.locationId]: rawLocation };
-  return JSON.stringify(rawObj, null, 8);
+        return acc;
+      }, { systemId });
+      return acc;
+    }, { gatewayId });
+    return acc;
+  }, { locationId, name })]));
+
+  return JSON.stringify(raw, null, 4);
 }

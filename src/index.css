@@ -1,17 +1,27 @@
 body {
-  margin: 0;
   font-family: sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-  grid-gap: 10px;
+.chart-line {
+  stroke: black;
 }
 
-.json {
-  width: 100%;
-  height: 20vh;
+.chart-element {
+  fill: black;
+}
+
+.chart-tick {
+  stroke: gray;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chart-line {
+    stroke: white;
+  }
+
+  .chart-element {
+    fill: white;
+  }
 }
